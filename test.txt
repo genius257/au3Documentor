@@ -1,0 +1,10 @@
+#cs
+# Summary
+# 
+# multiline
+# description
+#
+# @source
+#
+# @param string $argument1 This is the description.
+#ce

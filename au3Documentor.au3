@@ -1,5 +1,6 @@
 #include "ault\ErrorHandler.au3"
 #include "ault\Lexer.au3"
+#include "docBlock.au3"
 
 Global Enum Step *2 _
 $AU3DOC_FLAG_AUTOLINECONT = 1, _
@@ -52,11 +53,15 @@ Global Enum $AU3DOC_LEXI_FILENAME = 0, _
 Global Enum $AU3DOC_ST_START = -1, _
     $AU3DOC_ST_NONE, _
     $AU3DOC_ST_DOCBLOCK, _
+    $AU3DOC_ST_DOCBLOCKSUMMARY, _
+    $AU3DOC_ST_DOCBLOCKDESCRIPTION, _
     $AU3DOC_ST_DOCBLOCKNL, _
     $AU3DOC_ST_DOCBLOCKEND, _
     $AU3DOC_ST_PREPROC, _
     $AU3DOC_ST_PREPROCLINE, _
-    $AU3DOC_ST_PREPROCLINE_IGNORE
+    $AU3DOC_ST_PREPROCLINE_IGNORE, _
+    $AU3DOC_ST_DOCBLOCKTAG, _
+    $AU3DOC_ST_DOCBLOCKTEXT
 
 Func au3doc($sFile, $iFlags = $AL_FLAG_AUTOLINECONT + $AL_FLAG_AUTOINCLUDE)
     Local $l = _Ault_CreateLexer($sFile, $iFlags)
@@ -77,6 +82,7 @@ Func au3doc($sFile, $iFlags = $AL_FLAG_AUTOLINECONT + $AL_FLAG_AUTOINCLUDE)
                         Case "func", "local", "global", "const"
                             ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($prevTok[$AL_TOKI_TYPE]), $prevTok[$AL_TOKI_DATA]))
                             ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($aTok[$AL_TOKI_TYPE]), $aTok[$AL_TOKI_DATA]))
+                            #cs
                             Local $lex = __au3doc_CreateLexerFromString(StringFormat("%s#L%s", $l[$AL_LEXI_FILENAME], $prevTok[$AL_TOKI_LINE]), $prevTok[$AL_TOKI_DATA], $AL_FLAG_AUTOLINECONT)
                             Do
                                 $aTok2 = _au3doc_LexerStep($lex)
@@ -86,6 +92,10 @@ Func au3doc($sFile, $iFlags = $AL_FLAG_AUTOLINECONT + $AL_FLAG_AUTOINCLUDE)
                                 EndIf
                                 ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($aTok2[$AU3DOC_TOKI_TYPE]), $aTok2[$AU3DOC_TOKI_DATA]))
                             Until $aTok2[$AU3DOC_TOKI_TYPE] = $AU3DOC_TOK_EOF
+                            #ce
+                            $docBlock = splitDocBlock(stripDocComment($prevTok[$AL_TOKI_DATA]))
+                            $tags = parseTagBlock($docBlock[3], "")
+                            ConsoleWrite($docBlock[1]&@CRLF&_ArrayToString($tags)&@CRLF)
                         Case "func"
                             ;look for Word, following func
                         Case "local", "global", "const", "dim", "static", "enum"
@@ -95,6 +105,9 @@ Func au3doc($sFile, $iFlags = $AL_FLAG_AUTOLINECONT + $AL_FLAG_AUTOINCLUDE)
                 ElseIf  $aTok[$AL_TOKI_TYPE] = $AL_TOK_VARIABLE Then
                     ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($prevTok[$AL_TOKI_TYPE]), $prevTok[$AL_TOKI_DATA]))
                     ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($aTok[$AL_TOKI_TYPE]), $aTok[$AL_TOKI_DATA]))
+                    $docBlock = splitDocBlock(stripDocComment($prevTok[$AL_TOKI_DATA]))
+                    $tags = parseTagBlock($docBlock[3], "")
+                    ConsoleWrite($docBlock[1]&@CRLF&_ArrayToString($tags)&@CRLF)
                 EndIf
             EndIf
         ;If $aTok[$AL_TOKI_TYPE] = $AL_TOK_COMMENT Then ConsoleWrite(StringFormat("%s\n", $aTok[$AL_TOKI_LINE]))
@@ -340,33 +353,10 @@ Func _au3doc_LexerStep(ByRef $lex)
                     Switch StringStripWS(StringMid($lex[$AU3DOC_LEXI_DATA], $tokRet[$AU3DOC_TOKI_ABS], $lex[$AU3DOC_LEXI_ABS] - $tokRet[$AU3DOC_TOKI_ABS]), 2)
                         Case "#cs", "#comments-start"
                             $iState = $AU3DOC_ST_DOCBLOCK
-                        ;Case "#include"
-                        ;    If Not BitAND($lex[$AU3DOC_LEXI_FLAGS], $AU3DOC_FLAG_AUTOINCLUDE) Then ContinueCase
-                        ;    $iState = $AU3DOC_ST_INCLUDELINE
-                        ;Case "#include-once"
-                        ;    If Not BitAND($lex[$AU3DOC_LEXI_FLAGS], $AU3DOC_FLAG_AUTOINCLUDE) Then ContinueCase
-
-                        ;    Local $l = $lex, $fFound = False
-                        ;    Do
-                        ;        If StringInStr($l[$AU3DOC_LEXI_INCLONCE], ";" & $lex[$AU3DOC_LEXI_FILENAME] & ";") Then
-                        ;            $fFound = True
-                        ;            ExitLoop
-                        ;        EndIf
-                        ;        $l = $l[$AU3DOC_LEXI_PARENT]
-                        ;    Until Not IsArray($l)
-
-                        ;    ; Add to list if not already there.
-                        ;    If Not $fFound Then
-                        ;        $lex[$AU3DOC_LEXI_INCLONCE] &= $lex[$AU3DOC_LEXI_FILENAME] & ";"
-                        ;    EndIf
-
-                        ;    If __AuLex_StrIsNewLine($c) Then
-                        ;        $iState = $AU3DOC_ST_START
-                        ;    Else
-                        ;        $iState = $AU3DOC_ST_PREPROCLINE_IGNORE
-                        ;    EndIf
                         Case Else
+                            ;FIXME: should fail! not a starting docblock
                             If __AuLex_StrIsNewLine($c) Then
+                                ConsoleWrite("fail"&@CRLF)
                                 ; __AuLex_PrevChar($lex)
                                 $tokRet[$AU3DOC_TOKI_TYPE] = $AU3DOC_TOK_PREPROC
                                 ExitLoop
@@ -381,31 +371,31 @@ Func _au3doc_LexerStep(ByRef $lex)
                     $tokRet[$AU3DOC_TOKI_TYPE] = $AU3DOC_TOK_PREPROC
                     ExitLoop
                 EndIf
-            Case $AU3DOC_ST_PREPROCLINE_IGNORE
-                If __AuLex_StrIsNewLine($c) Or $c = "" Then
-                    $iState = $AU3DOC_ST_START
-                EndIf
-            ;Case $AU3DOC_ST_INCLUDELINE
-                ;TODO
             Case $AU3DOC_ST_DOCBLOCK
                 If __AuLex_StrIsNewLine($c) Then
-                    $iState = $AU3DOC_ST_DOCBLOCKNL
+                    ;$iState = $AU3DOC_ST_DOCBLOCKNL
+                    $iState = $AU3DOC_ST_DOCBLOCKSUMMARY ;TODO: here, this state is not handled currently
                 ElseIf $c = "" Then
                     ; ERROR: Multiline comment not terminated
                     Return SetError(@ScriptLineNumber, 0, _
                             _Error_CreateLex("Multiline comment not terminated", $lex))
+                ;ElseIf $c = "@" Then
+                ;    $iState = $AU3DOC_ST_DOCBLOCKTAG
+                            ;FIXME: make sure something like #cs123 or #cs 123 is not accepted, only newline
                 EndIf
             Case $AU3DOC_ST_DOCBLOCKNL
                 If $c = "#" Then
                     $iState = $AU3DOC_ST_DOCBLOCKEND
                     $anchor = $lex[$AL_LEXI_ABS]
-                ElseIf $c = "" Then
+                Else
+                    ;Invalid docblock
+                ;ElseIf $c = "" Then
                     ; ERROR: Multiline comment not terminated
                     Return SetError(@ScriptLineNumber, 0, 0)
-                ElseIf __AuLex_StrIsNewLine($c) Then
-                    $iState = $AU3DOC_ST_DOCBLOCKNL
-                Else
-                    $iState = $AL_ST_COMMENTMULTI ; $AU3DOC_ST_DOCBLOCKEND
+                ;ElseIf __AuLex_StrIsNewLine($c) Then
+                ;    $iState = $AU3DOC_ST_DOCBLOCKNL
+                ;Else
+                ;    $iState = $AU3DOC_ST_DOCBLOCK
                 EndIf
             Case $AU3DOC_ST_DOCBLOCKEND
                 If StringIsSpace($c) Or $c = "" Then
@@ -418,10 +408,12 @@ Func _au3doc_LexerStep(ByRef $lex)
                             If __AuLex_StrIsNewLine($c) Then
                                 $iState = $AU3DOC_ST_DOCBLOCKNL
                             Else
-                                $iState = $AL_ST_COMMENTMULTI ; $AU3DOC_ST_DOCBLOCKEND
+                                $iState = $AU3DOC_ST_DOCBLOCK
                             EndIf
                     EndSwitch
                 EndIf
+            Case $AU3DOC_ST_DOCBLOCKTAG
+                ;
             Case Else
                 ConsoleWrite("iState: "&$iState&@lf)
                 ; Serious issue with the lexer.
@@ -487,6 +479,11 @@ EndFunc
 Func __au3doc_Make($iType = 0, $sData = "", $iAbs = -1, $iLine = -1, $iCol = -1)
     Local $tokRet[$AU3DOC_TOK_MAX] = [$iType, $sData, $iAbs, $iLine, $iCol]
     Return $tokRet
+EndFunc
+
+Func __au3doc_Tok_TypeToStr($iTok)
+    If $iTok >= $_AL_TOK_COUNT Or $iTok < 0 Then Return "Token???"
+    ;Return $_AU3DOC_TOK_NAMES[$iTok]
 EndFunc
 
 au3doc("Examplefile.au3")
