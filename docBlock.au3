@@ -113,13 +113,9 @@ Func parseTagBlock($tags, $context)
         return $return;
     EndIf
     $result = splitTagBlockIntoTagLines($tags);
-    #cs FIXME
-    foreach ($result as $key => $tagLine) {
-        $result[$key] = $this->tagFactory->create(trim($tagLine), $context);
-    }
-
-    StringRegExpReplace($tagLine, "(?:^[ \t\n\r\0\x0B]|[ \t\n\r\0\x0B]$)", "")
-    #ce
+    For $i = 0 To UBound($result)-1 Step +1
+        $result[$i] = StringRegExpReplace($result[$i], "(?:^[ \t\n\r\0\x0B]|[ \t\n\r\0\x0B]$)", "")
+    Next
     return $result;
 EndFunc
 
