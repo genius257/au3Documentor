@@ -140,7 +140,7 @@ Func splitTagBlockIntoTagLines($tags)
 EndFunc
 
 Func filterTagBlock($tags)
-    $tags = StringRegExpReplace($tags, "(?:^[ \t\n\r\0\x0B]|[ \t\n\r\0\x0B]$)", "");
+    $tags = StringRegExpReplace($tags, "(?:^[ \t\n\r\0\x0B]+|[ \t\n\r\0\x0B]+$)", "");
     if (Not $tags) Then
         return null;
     EndIf
