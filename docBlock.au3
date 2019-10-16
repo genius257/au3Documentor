@@ -127,8 +127,8 @@ EndFunc
 # @return string[]
 #ce
 Func splitTagBlockIntoTagLines($tags)
-    Local $result = [];
     For $tag_line In StringSplit($tags, StringFormat('\n'))
+    Local $result[0]
         If StringLeft($tag_line, 1) == '@' Then
             Redim $result[UBound($result, 1) + 1]
             $result[UBound($result, 1) - 1] = $tag_line
