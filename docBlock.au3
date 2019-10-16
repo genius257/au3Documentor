@@ -10,11 +10,11 @@
 # @param string $comment String containing the comment text.
 #ce
 Func stripDocComment($comment)
-    $comment = trim(preg_replace('[ \t]*(?:\#cs|\#ce|\#)?[ \t]{0,1}(.*)?', '$1', $comment));
+    $comment = StringRegExpReplace(preg_replace('[ \t]*(?:\#cs|\#ce|\#)?[ \t]{0,1}(.*)?', '$1', $comment), "(?:^[ \t\n\r\0\x0B]|[ \t\n\r\0\x0B]$)", "");
 
     ; reg ex above is not able to remove #ce from a single line docblock
     if (substr($comment, -3) == '#ce') Then
-        $comment = trim(substr($comment, 0, -3));
+        $comment = StringRegExpReplace(substr($comment, 0, -3), "(?:^[ \t\n\r\0\x0B]|[ \t\n\r\0\x0B]$)", "");
     EndIf
 
     return StringRegExpReplace($comment, "(?:\r\n|\r)", StringFormat("\n"))
@@ -117,6 +117,8 @@ Func parseTagBlock($tags, $context)
     foreach ($result as $key => $tagLine) {
         $result[$key] = $this->tagFactory->create(trim($tagLine), $context);
     }
+
+    StringRegExpReplace($tagLine, "(?:^[ \t\n\r\0\x0B]|[ \t\n\r\0\x0B]$)", "")
     #ce
     return $result;
 EndFunc
@@ -138,7 +140,7 @@ Func splitTagBlockIntoTagLines($tags)
 EndFunc
 
 Func filterTagBlock($tags)
-    $tags = trim($tags);
+    $tags = StringRegExpReplace($tags, "(?:^[ \t\n\r\0\x0B]|[ \t\n\r\0\x0B]$)", "");
     if (Not $tags) Then
         return null;
     EndIf
@@ -148,10 +150,6 @@ Func filterTagBlock($tags)
         Exit MsgBox(0, "", 'A tag block started with text instead of an at-sign(@): ' & $tags)
     EndIf
     return $tags;
-EndFunc
-
-Func trim($str, $character_mask = " \t\n\r\0\x0B")
-    Return StringStripWS($str, 3)
 EndFunc
 
 Func preg_replace($pattern, $replace, $str)
