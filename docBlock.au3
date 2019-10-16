@@ -34,7 +34,7 @@ Func splitDocBlock($comment)
     ; Performance improvement cheat: if the first character is an @ then only tags are in this DocBlock. This
     ; method does not split tags so we return this verbatim as the fourth result (tags). This saves us the
     ; performance impact of running a regular expression
-    If (strpos($comment, '@') == 0) Then
+    If (StringInStr($comment, '@') - 1 == 0) Then
         local $return = ['', '', '', $comment]
         return $return;
     EndIf
@@ -158,10 +158,6 @@ EndFunc
 
 Func substr($str, $start, $count = "-1")
     Return StringMid($str, $start, $count)
-EndFunc
-
-Func strpos($str, $substr)
-    Return StringInStr($str, $substr)-1
 EndFunc
 
 #cs
