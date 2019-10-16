@@ -160,10 +160,6 @@ Func substr($str, $start, $count = "-1")
     Return StringMid($str, $start, $count)
 EndFunc
 
-Func str_replace($str)
-    Return $str
-EndFunc
-
 Func strpos($str, $substr)
     Return StringInStr($str, $substr)-1
 EndFunc
