@@ -10,7 +10,6 @@
 # @param string $comment String containing the comment text.
 #ce
 Func stripDocComment($comment)
-    ;$comment = trim(preg_replace('[ \t]*(?:\/\*\*|\*\/|\*)?[ \t]{0,1}(.*)?', '$1', $comment));
     $comment = trim(preg_replace('[ \t]*(?:\#cs|\#ce|\#)?[ \t]{0,1}(.*)?', '$1', $comment));
 
     ; reg ex above is not able to remove #ce from a single line docblock
@@ -18,7 +17,6 @@ Func stripDocComment($comment)
         $comment = trim(substr($comment, 0, -3));
     EndIf
 
-    ;return str_replace(["\r\n", "\r"], "\n", $comment);
     return StringRegExpReplace($comment, "(?:\r\n|\r)", StringFormat("\n"))
 EndFunc
 
@@ -145,13 +143,8 @@ Func filterTagBlock($tags)
         return null;
     EndIf
     if Not ('@' == StringLeft($tags, 1)) Then
-        ; @codeCoverageIgnoreStart
         ; Can't simulate this; this only happens if there is an error with the parsing of the DocBlock that
         ; we didn't foresee.
-        #cs FIXME
-        throw new \LogicException('A tag block started with text instead of an at-sign(@): ' . $tags);
-        #ce
-        ; @codeCoverageIgnoreEnd
         Exit MsgBox(0, "", 'A tag block started with text instead of an at-sign(@): ' & $tags)
     EndIf
     return $tags;
