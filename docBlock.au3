@@ -109,7 +109,7 @@ EndFunc
 Func parseTagBlock($tags, $context)
     $tags = filterTagBlock($tags);
     if (Not $tags) Then
-        Local $return = []
+        Local $return[0]
         return $return;
     EndIf
     $result = splitTagBlockIntoTagLines($tags);
