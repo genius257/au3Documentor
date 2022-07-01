@@ -4,6 +4,11 @@
 # parsed to AutoIt from https://github.com/phpDocumentor/ReflectionDocBlock/blob/8fcadfe5f85c38705151c9ab23b4781f23e6a70e/src/DocBlockFactory.php
 #ce
 
+Global Const $docBlock_templateMarker = 0
+Global Const $docBlock_summary = 1
+Global Const $docBlock_description = 2
+Global Const $docBlock_tags = 3
+
 #cs
 # Strips the asterisks from the DocBlock comment.
 #

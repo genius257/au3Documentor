@@ -3,45 +3,90 @@
 #include "docBlock.au3"
 
 Func au3doc($sFile, $iFlags = $AL_FLAG_AUTOLINECONT + $AL_FLAG_AUTOINCLUDE)
+    Local $au3doc[100], $iAu3doc = 0
+
     Local $l = _Ault_CreateLexer($sFile, $iFlags)
+    If @error <> 0 Then Return SetError(@error, @extended, 0)
     Local $sData, $iType
     Local $prevTok = [0]
     Do
         $aTok = _Ault_LexerStep($l)
         If @error Then
-            ConsoleWrite("Error: " & @error & @LF)
+            ;ConsoleWrite($aTok[4]&@CRLF)
+            ;ConsoleWrite("Error: " & @error & @LF)
+            ConsoleWrite("Error: "&$aTok[$AULT_ERRI_MSG]&@CRLF)
+            ConsoleWrite($aTok[$AULT_ERRI_FILE]&":"&$aTok[$AULT_ERRI_LINE]&":"&$aTok[$AULT_ERRI_COL]&@CRLF)
             ExitLoop
         EndIf
         ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($aTok[$AL_TOKI_TYPE]), $aTok[$AL_TOKI_DATA]))
         ;If $aTok[$AL_TOKI_TYPE] = $AL_TOK_COMMENT Then ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($aTok[$AL_TOKI_TYPE]), $aTok[$AL_TOKI_DATA]))
         If $prevTok[$AL_TOKI_TYPE] = $AL_TOK_COMMENT And $aTok[$AL_TOKI_TYPE] = $AL_TOK_EOL Then ContinueLoop
             If $prevTok[$AL_TOKI_TYPE] = $AL_TOK_COMMENT And __au3doc_isDocBlock($prevTok[$AL_TOKI_DATA]) Then
-                If  $aTok[$AL_TOKI_TYPE] = $AL_TOK_KEYWORD Then
-                    Switch $aTok[$AL_TOKI_DATA]
-                        Case "func", "local", "global", "const"
-                            ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($prevTok[$AL_TOKI_TYPE]), $prevTok[$AL_TOKI_DATA]))
-                            ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($aTok[$AL_TOKI_TYPE]), $aTok[$AL_TOKI_DATA]))
-                            $docBlock = splitDocBlock(stripDocComment($prevTok[$AL_TOKI_DATA]))
-                            $tags = parseTagBlock($docBlock[3], "")
-                            ConsoleWrite($docBlock[1]&@CRLF&_ArrayToString($tags)&@CRLF)
-                        Case "func"
-                            ;look for Word, following func
-                        Case "local", "global", "const", "dim", "static", "enum"
-                            ;skip other keywords, capture var
-                            ;handle cases where multiple vars are defined on the same line
+                ConsoleWrite($prevTok[$AL_TOKI_DATA]&@CRLF&@CRLF&@CRLF)
+                Switch $aTok[$AL_TOKI_TYPE]
+                    Case $AL_TOK_KEYWORD
+                        Switch $aTok[$AL_TOKI_DATA]
+                            Case "func"
+                                $aTok = _Ault_LexerStep($l)
+                                If ($aTok[$AL_TOKI_TYPE] = $AL_TOK_WORD) Then
+                                    $docBlock = splitDocBlock(stripDocComment($prevTok[$AL_TOKI_DATA]))
+                                    $tags = parseTagBlock($docBlock[$docBlock_tags], "")
+
+                                    __au3doc_arr_addDoc($au3doc, $iAu3doc, $aTok[$AL_TOKI_DATA], $docBlock[$docBlock_summary], $docBlock[$docBlock_description], $docBlock[$docBlock_tags], "", $prevTok[$AL_TOKI_LINE], $prevTok[$AL_TOKI_COL])
+                                    ;ConsoleWrite("Function:"&@CRLF)
+                                    ;ConsoleWrite(@TAB&"Name:        "&$aTok[$AL_TOKI_DATA]&@CRLF)
+                                    ;ConsoleWrite(@TAB&"Summary:     "&$docBlock[$docBlock_summary]&@CRLF)
+                                    ;ConsoleWrite(@TAB&"Description: "&$docBlock[$docBlock_description]&@CRLF)
+                                    ;ConsoleWrite(@TAB&"Tags:        "&@CRLF&@TAB&@TAB&_ArrayToString($tags,@CRLF&@TAB&@TAB)&@CRLF)
+                                EndIf
+                                ;look for Word, following func
+                            Case "local", "global", "const", "dim", "static", "enum"
+                                Do
+                                    $aTok = _Ault_LexerStep($l)
+                                Until $aTok[$AL_TOKI_TYPE] = $AL_TOK_VARIABLE Or $aTok[$AL_TOKI_TYPE] = $AL_TOK_EOF
+                                ;handle cases where multiple vars are defined on the same line
                         EndSwitch
-                ElseIf  $aTok[$AL_TOKI_TYPE] = $AL_TOK_VARIABLE Then
-                    ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($prevTok[$AL_TOKI_TYPE]), $prevTok[$AL_TOKI_DATA]))
-                    ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($aTok[$AL_TOKI_TYPE]), $aTok[$AL_TOKI_DATA]))
-                    $docBlock = splitDocBlock(stripDocComment($prevTok[$AL_TOKI_DATA]))
-                    $tags = parseTagBlock($docBlock[3], "")
-                    ConsoleWrite($docBlock[1]&@CRLF&_ArrayToString($tags)&@CRLF)
-                EndIf
+                        If $aTok[$AL_TOKI_TYPE] = $AL_TOK_VARIABLE Then ContinueCase
+                    Case $AL_TOK_VARIABLE
+                        ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($prevTok[$AL_TOKI_TYPE]), $prevTok[$AL_TOKI_DATA]))
+                        ;ConsoleWrite(StringFormat("%s: %s\n", __AuTok_TypeToStr($aTok[$AL_TOKI_TYPE]), $aTok[$AL_TOKI_DATA]))
+                        $docBlock = splitDocBlock(stripDocComment($prevTok[$AL_TOKI_DATA]))
+                        $tags = parseTagBlock($docBlock[$docBlock_tags], "")
+                        ;ConsoleWrite($docBlock[1]&@CRLF&_ArrayToString($tags)&@CRLF)
+                        __au3doc_arr_addDoc($au3doc, $iAu3doc, $aTok[$AL_TOKI_DATA], $docBlock[$docBlock_summary], $docBlock[$docBlock_description], $docBlock[$docBlock_tags], "", $prevTok[$AL_TOKI_LINE], $prevTok[$AL_TOKI_COL])
+                        ;ConsoleWrite("Variable:"&@CRLF)
+                        ;ConsoleWrite(@TAB&"Name:        "&$aTok[$AL_TOKI_DATA]&@CRLF)
+                        ;ConsoleWrite(@TAB&"Summary:     "&$docBlock[$docBlock_summary]&@CRLF)
+                        ;ConsoleWrite(@TAB&"Description: "&$docBlock[$docBlock_description]&@CRLF)
+                        ;ConsoleWrite(@TAB&"Tags:        "&@CRLF&@TAB&@TAB&_ArrayToString($tags,@CRLF&@TAB&@TAB)&@CRLF)
+                EndSwitch
             EndIf
         ;If $aTok[$AL_TOKI_TYPE] = $AL_TOK_COMMENT Then ConsoleWrite(StringFormat("%s\n", $aTok[$AL_TOKI_LINE]))
         ;If $aTok[$AL_TOKI_TYPE] = $AL_TOK_COMMENT Then ConsoleWrite(StringFormat("%s\n", $l[$AL_LEXI_FILENAME]));get fn for current token type
         $prevTok = $aTok
     Until $aTok[$AL_TOKI_TYPE] = $AL_TOK_EOF And $aTok[$AL_TOKI_DATA] = ""
+
+    ReDim $au3doc[$iAu3doc]
+    Return $au3doc
+EndFunc
+
+Func __au3doc_arr_addDoc(ByRef $arr, ByRef $index, $name, $summary, $description, $tags, $file, $line, $column)
+    Local $doc[7]
+    $doc[0] = $name
+    $doc[1] = $summary
+    $doc[2] = $description
+    $doc[3] = $tags
+    $doc[4] = $file
+    $doc[5] = $line
+    $doc[6] = $column
+
+    ;ConsoleWrite("Index: "&$index&@CRLF)
+    ;ConsoleWrite("Old: "&UBound($arr, 1)&@CRLF)
+    ;ConsoleWrite("New: "&UBound($arr, 1) * 2&@CRLF)
+
+    If UBound($arr, 1) <= ($index+1) Then ReDim $arr[UBound($arr, 1) * 2]
+    $arr[$index] = $doc
+    $index += 1
 EndFunc
 
 Func __au3doc_isDocBlock($sData)
@@ -204,5 +249,3 @@ Func __au3doc_isDocBlock($sData)
     WEnd
     Return True
 EndFunc
-
-au3doc("Examplefile.au3")

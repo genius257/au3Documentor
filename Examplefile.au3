@@ -70,3 +70,27 @@ EndFunc
 Func abc6()
     ;
 EndFunc
+
+#cs
+# Does nothing.
+# This function does simply nothing of worth.
+# @return void
+#ce
+Func abc7()
+    #cs
+        some multiline comment
+    #ce
+
+    $a = 1
+
+    #cs
+        another multiline comment
+    #ce
+EndFunc
+
+#cs
+# abc8
+#ce
+Func abc8()
+
+EndFunc
